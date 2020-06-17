@@ -1,6 +1,6 @@
 #!/bin/bash
 MININET_DIR=${PWD}
-POX_DIR=${PWD}/../../pox/
+POX_DIR=${PWD}/../../../pox/
 
 cp -r ./firewall/firewall.py $POX_DIR/pox/misc
 cd $POX_DIR
