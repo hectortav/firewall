@@ -2,7 +2,7 @@
 
 ## install
 
-- cd /mininet/custom/firewall
+- cd /mininet/custom
 - git clone https://github.com/hectortav/firewall.git
 
 ## run
