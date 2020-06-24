@@ -3,15 +3,15 @@ from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.util import dumpNodeConnections
 from mininet.log import setLogLevel
+from mininet.node import RemoteController
 
 
 class MultiSwitchTopo(Topo):
-    "Single switch connected to n hosts."
-    def __init__(self, n=8, **opts):
-        # Initialize topology and default options
+    
+    def __init__(self, **opts):
+
         Topo.__init__(self, **opts)
         #switch = self.addSwitch('s1')
-        # Python's range(N) generates 0..N-1
         #for h in range(n):
          #   host = self.addHost('h%s' % (h + 1), ip='10.0.0.%s' % (h+1))
             #self.addLink(host, switch)
@@ -53,8 +53,9 @@ class MultiSwitchTopo(Topo):
 
 def simpleTest():
     "Create and test a simple network"
-    topo = SingleSwitchTopo(5)
-    net = Mininet(topo)
+    topo = SingleSwitchTopo()
+    net = Mininet(controller=RemoteController)
+    net.addController('c0')
     net.start()
     print "Dumping host connections"
     dumpNodeConnections(net.hosts)
