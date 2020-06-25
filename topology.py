@@ -5,7 +5,6 @@ from mininet.util import dumpNodeConnections
 from mininet.log import setLogLevel
 from mininet.node import RemoteController
 
-
 class MultiSwitchTopo(Topo):
     
     def __init__(self, **opts):
