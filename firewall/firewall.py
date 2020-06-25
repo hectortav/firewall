@@ -6,7 +6,7 @@ import pox.lib.packet as pkt
 from pox.lib.addresses import EthAddr, IPAddr
 
 log = core.getLogger()
-rules = [['10.0.0.1','10.0.0.2'],['10.0.0.2', '10.0.0.4']]
+rules = [['10.0.0.1','10.0.0.2'],['10.0.0.2', '10.0.0.4'], ['10.0.0.5', '10.0.0.8'], ['10.0.0.6', '10.0.0.7']]
 
 class Firewall (EventMixin):
     def __init__ (self):
@@ -21,8 +21,8 @@ class Firewall (EventMixin):
             match.nw_src = IPAddr(rule[0])
             match.nw_dst = IPAddr(rule[1])
             msg.match = match
-            msg.idle_timeout = 10000
-            msg.hard_timeout = 10000
+            msg.idle_timeout = 1000
+            msg.hard_timeout = 1000
             msg.priority = 10
             event.connection.send(msg)   
         

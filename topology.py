@@ -52,9 +52,8 @@ class MultiSwitchTopo(Topo):
 
 def simpleTest():
     "Create and test a simple network"
-    topo = SingleSwitchTopo()
-    net = Mininet(controller=RemoteController)
-    net.addController('c0')
+    topo = MultiSwitchTopo()
+    net = Mininet(topo=topo, controller=RemoteController)
     net.start()
     print "Dumping host connections"
     dumpNodeConnections(net.hosts)
@@ -63,10 +62,8 @@ def simpleTest():
     net.stop()
 
 if __name__ == '__main__':
-    # Tell mininet to print useful information
     setLogLevel('info')
     simpleTest()
-
 
 topos = { 'topo': MultiSwitchTopo }
 
