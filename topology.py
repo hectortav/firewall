@@ -1,4 +1,4 @@
-#!/usr/bin/python                                                                                                                                              
+#!/usr/bin/python                                                                                                                                           
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.util import dumpNodeConnections
@@ -50,27 +50,6 @@ class MultiSwitchTopo(Topo):
             self.addLink(l1, layer2[2*idx])
             self.addLink(l1, layer2[2*idx + 1])
 
-class BellmanFordTopo(Topo):
-
-    def __init__(self, **opts):
-
-        Topo.__init__(self, **opts)
-        h1  = self.addHost('h1')
-        h2  = self.addHost('h2')
-        s1 = self.addSwitch('s1')
-        s2 = self.addSwitch('s2')
-        s3 = self.addSwitch('s3')
-        s4 = self.addSwitch('s4')
-        s5 = self.addSwitch('s5')
-
-        self.addLink(h1, s1)
-        self.addLink(s1, s2)
-        self.addLink(s1, s3)
-        self.addLink(s3, s4)
-        self.addLink(s2, s5)
-        self.addLink(s4, s5)
-        self.addLink(s4, h2)
-
 def simpleTest():
     "Create and test a simple network"
     topo = MultiSwitchTopo()
@@ -86,4 +65,4 @@ if __name__ == '__main__':
     setLogLevel('info')
     simpleTest()
 
-topos = { 'topo': MultiSwitchTopo, 'topo2': BellmanFordTopo}
+topos = { 'topo': MultiSwitchTopo }
