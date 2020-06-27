@@ -51,7 +51,6 @@ class MultiSwitchTopo(Topo):
             self.addLink(l1, layer2[2*idx + 1])
 
 def simpleTest():
-    "Create and test a simple network"
     topo = MultiSwitchTopo()
     net = Mininet(topo=topo, controller=RemoteController)
     net.start()

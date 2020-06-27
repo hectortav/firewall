@@ -1,35 +1,23 @@
-#!/usr/bin/python  
-
-from mininet.net  import Mininet
+#!/usr/bin/python
+from mininet.topo import Topo
+from mininet.net import Mininet
+from mininet.util import dumpNodeConnections
+from mininet.log import setLogLevel
 from mininet.node import RemoteController
 from mininet.link import TCLink
 from mininet.cli  import CLI
-from mininet.util import quietRun
 
+'''
 net = Mininet(link=TCLink);
 
 # Add hosts and switches
-Host1  = net.addHost('h1')
-Host2  = net.addHost('h2')
-Switch1 = net.addSwitch('s1')
-Switch2 = net.addSwitch('s2')
-Switch3 = net.addSwitch('s3')
-Switch4 = net.addSwitch('s4')
-Switch5 = net.addSwitch('s5')
+
 
 # Add links
-# set link speeds to 10Mbit/s
-linkopts = dict(bw=10)
-net.addLink(Host1,   Switch1, **linkopts)
-net.addLink(Switch1,  Switch2, **linkopts)
-net.addLink(Switch1,  Switch3, **linkopts)
-net.addLink(Switch3,  Switch4, **linkopts)
-net.addLink(Switch2,  Switch5, **linkopts)
-net.addLink(Switch4,  Switch5, **linkopts)
-net.addLink(Switch4,  Host2, **linkopts)
+
 
 # Start
-net.addController('c', controller=RemoteController,ip='127.0.0.1',port=6633)
+net.addController('c0', controller=RemoteController)
 net.build()
 net.start()
 
@@ -38,3 +26,43 @@ CLI( net )
 
 # Clean up
 net.stop()
+'''
+
+class DuoSwitchTopo(Topo):
+
+    def __init__(self, **opts):
+
+        Topo.__init__(self, **opts)
+
+        h1  = self.addHost('h1', ip='10.0.0.1')
+        h2  = self.addHost('h2', ip='10.0.0.2')
+
+        s1 = self.addSwitch('s1')
+        s2 = self.addSwitch('s2')
+        s3 = self.addSwitch('s3')
+        s4 = self.addSwitch('s4')
+        s5 = self.addSwitch('s5')
+
+        self.addLink(h1, s1)
+        self.addLink(s1, s2)
+        self.addLink(s1, s3)
+        self.addLink(s3, s4)
+        self.addLink(s2, s5)
+        self.addLink(s4, s5)
+        self.addLink(s4, h2)
+
+def simpleTest():
+    topo = DuoSwitchTopo()
+    net = Mininet(topo=topo, controller=RemoteController, link=TCLink)
+    net.start()
+    print "Dumping host connections"
+    dumpNodeConnections(net.hosts)
+    print "Testing network connectivity"
+    net.pingAll()
+    net.stop()
+
+if __name__ == '__main__':
+    setLogLevel('info')
+    simpleTest()
+
+topos = { 'topo': DuoSwitchTopo }
