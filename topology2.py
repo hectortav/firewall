@@ -58,7 +58,8 @@ def simpleTest():
     print "Dumping host connections"
     dumpNodeConnections(net.hosts)
     print "Testing network connectivity"
-    net.pingAll()
+    # net.pingAll()
+    net.ping([net.hosts[0], net.hosts[1]])
     net.stop()
 
 if __name__ == '__main__':
