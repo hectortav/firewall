@@ -70,34 +70,6 @@ def _get_path(src, dst, first_port, final_port):
     r.append((dst, in_port, final_port))
     return r
 
-
-class WaitingPath(object):
-    def __init__(self, path, packet):
-        self.path = path
-        self.first_switch = path[0][0].dpid
-        self.xids = set()
-        self.packet = packet
-        if len(waiting_paths) > 1000:
-            WaitingPath.expire_waiting_paths()
-
-    def add_xid(self, dpid, xid):
-        self.xids.add((dpid, xid))
-        waiting_paths[(dpid, xid)] = self
-
-    @property
-    def is_expired(self):
-        return time.time() >= self.expires_at
-
-    @staticmethod
-    def expire_waiting_paths():
-        packets = set(waiting_paths.values())
-        killed = 0
-        for p in packets:
-            if p.is_expired:
-                killed += 1
-                for entry in p.xids:
-                    waiting_paths.pop(entry, None)
-
 class PathInstalled(Event):
     def __init__(self, path):
         Event.__init__(self)
@@ -126,12 +98,10 @@ class Switch(EventMixin):
         switch.connection.send(msg)
 
     def _install_path(self, p, match, packet_in=None):
-        wp = WaitingPath(p, packet_in)
         for sw, in_port, out_port in p:
             self._install(sw, in_port, out_port, match)
             msg = of.ofp_barrier_request()
             sw.connection.send(msg)
-            wp.add_xid(sw.dpid, msg.xid)
 
     def install_path(self, dst_sw, last_port, match, event):
         p = _get_path(self, dst_sw, event.port, last_port)
