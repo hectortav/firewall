@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
 from pox.lib.revent import *
@@ -7,7 +8,7 @@ from pox.openflow.discovery import Discovery
 from pox.lib.util import dpid_to_str
 import pox.lib.packet as pkt
 from pox.lib.addresses import EthAddr
-import time
+import time, struct
 
 _src = "00-00-00-00-00-01"
 _dst = "00-00-00-00-00-07"
@@ -47,7 +48,7 @@ def _get_raw_path(src, dst):
     return r
 
 
-def _get_path(src, dst, first_port, final_port):
+def _get_path(src, dst, first, final):
     if src == dst:
         path = [src]
     else:
@@ -62,19 +63,18 @@ def _get_path(src, dst, first_port, final_port):
             print("~~~~~~~~~~~~~~~~~~~~~")
 
     r = []
-    in_port = first_port
+    in_port = first
     for s1, s2 in zip(path[:-1], path[1:]):
         out_port = adjacency[s1][s2]
         r.append((s1, in_port, out_port))
         in_port = adjacency[s2][s1]
-    r.append((dst, in_port, final_port))
+    r.append((dst, in_port, final))
     return r
 
 class PathInstalled(Event):
     def __init__(self, path):
         Event.__init__(self)
         self.path = path
-
 
 class Switch(EventMixin):
     def __init__(self):
@@ -91,8 +91,6 @@ class Switch(EventMixin):
         msg = of.ofp_flow_mod()
         msg.match = match
         msg.match.in_port = in_port
-        msg.idle_timeout = 10
-        msg.hard_timeout = 30
         msg.actions.append(of.ofp_action_output(port=out_port))
         msg.buffer_id = buf
         switch.connection.send(msg)
@@ -121,7 +119,6 @@ class Switch(EventMixin):
                 orig_ip = event.parsed.find('ipv4')
                 d = orig_ip.pack()
                 d = d[:orig_ip.hl * 4 + 8]
-                import struct
                 d = struct.pack("!HH", 0, 0) + d
                 icmp.payload = d
                 ipp.payload = icmp
@@ -173,7 +170,6 @@ class Switch(EventMixin):
     def _handle_ConnectionDown(self, event):
         self.disconnect()
 
-
 class l2_multi(EventMixin):
 
     def __init__(self):
@@ -184,9 +180,6 @@ class l2_multi(EventMixin):
         core.call_when_ready(startup, ('openflow', 'openflow_discovery'))
     
     def _handle_LinkEvent(self, event):
-        def flip(link):
-            return Discovery.Link(link[2], link[3], link[0], link[1])
-
         l = event.link
         sw1 = switches[l.dpid1]
         sw2 = switches[l.dpid2]
@@ -199,19 +192,18 @@ class l2_multi(EventMixin):
             if sw1 in adjacency[sw2]: del adjacency[sw2][sw1]
             for ll in core.openflow_discovery.adjacency:
                 if ll.dpid1 == l.dpid1 and ll.dpid2 == l.dpid2:
-                    if flip(ll) in core.openflow_discovery.adjacency:
+                    if Discovery.Link(ll[2], ll[3], ll[0], ll[1]) in core.openflow_discovery.adjacency:
                         adjacency[sw1][sw2] = ll.port1
                         adjacency[sw2][sw1] = ll.port2
                         break
         else:
             if adjacency[sw1][sw2] is None:
-                if flip(l) in core.openflow_discovery.adjacency:
+                if Discovery.Link(l[2], l[3], l[0], l[1]) in core.openflow_discovery.adjacency:
                     adjacency[sw1][sw2] = l.port1
                     adjacency[sw2][sw1] = l.port2
             bad_macs = set()
             for mac, (sw, port) in mac_map.iteritems():
-                if (sw is sw1 and port == l.port1) or (sw is sw2
-                                                       and port == l.port2):
+                if (sw is sw1 and port == l.port1) or (sw is sw2 and port == l.port2):
                     bad_macs.add(mac)
 
     def _handle_ConnectionUp(self, event):
