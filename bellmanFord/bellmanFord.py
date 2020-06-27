@@ -10,7 +10,7 @@ from pox.lib.addresses import EthAddr
 import time
 
 _src = "00-00-00-00-00-01"
-_dst = "00-00-00-00-00-04"
+_dst = "00-00-00-00-00-07"
 
 log = core.getLogger()
 adjacency = defaultdict(lambda: defaultdict(lambda: None))
