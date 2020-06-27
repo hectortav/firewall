@@ -18,23 +18,19 @@ switches = {}
 mac_map = {}
 waiting_paths = {}
 
-
 def _get_raw_path(src, dst):
-    #Bellman-Ford algorithm
     distance = {}
     previous = {}
-    sws = switches.values()
-    for dpid in sws:
-        distance[dpid] = 9999
-        previous[dpid] = None
+    for i in switches.values():
+        distance[i] = 9999
+        previous[i] = None
     distance[src] = 0
-    for m in range(len(sws) - 1):
-        for p in sws:
-            for q in sws:
+    for m in range(len(switches.values()) - 1):
+        for p in switches.values():
+            for q in switches.values():
                 if adjacency[p][q] != None:
-                    w = 1
-                    if distance[p] + w < distance[q]:
-                        distance[q] = distance[p] + w
+                    if distance[p] + 1 < distance[q]:
+                        distance[q] = distance[p] + 1
                         previous[q] = p
     r = []
     p = dst
@@ -52,10 +48,6 @@ def _get_raw_path(src, dst):
 
 
 def _get_path(src, dst, first_port, final_port):
-    """
-  Gets a cooked path -- a list of (node,in_port,out_port)
-  """
-    # Start with a raw path...
     if src == dst:
         path = [src]
     else:
@@ -69,7 +61,6 @@ def _get_path(src, dst, first_port, final_port):
             print(path)
             print("~~~~~~~~~~~~~~~~~~~~~")
 
-    # Now add the ports
     r = []
     in_port = first_port
     for s1, s2 in zip(path[:-1], path[1:]):
@@ -81,15 +72,7 @@ def _get_path(src, dst, first_port, final_port):
 
 
 class WaitingPath(object):
-    """
-  A path which is waiting for its path to be established
-  """
     def __init__(self, path, packet):
-        """
-    xids is a sequence of (dpid,xid)
-    first_switch is the DPID where the packet came from
-    packet is something that can be sent in a packet_out
-    """
         self.path = path
         self.first_switch = path[0][0].dpid
         self.xids = set()
@@ -105,22 +88,6 @@ class WaitingPath(object):
     def is_expired(self):
         return time.time() >= self.expires_at
 
-    def notify(self, event):
-        """
-    Called when a barrier has been received
-    """
-        self.xids.discard((event.dpid, event.xid))
-        if len(self.xids) == 0:
-            # Done!
-            if self.packet:
-                log.debug("Sending delayed packet out %s" %
-                          (dpid_to_str(self.first_switch), ))
-                msg = of.ofp_packet_out(
-                    data=self.packet,
-                    action=of.ofp_action_output(port=of.OFPP_TABLE))
-                core.openflow.sendToDPID(self.first_switch, msg)
-            core.l2_multi.raiseEvent(PathInstalled(self.path))
-
     @staticmethod
     def expire_waiting_paths():
         packets = set(waiting_paths.values())
@@ -130,14 +97,8 @@ class WaitingPath(object):
                 killed += 1
                 for entry in p.xids:
                     waiting_paths.pop(entry, None)
-        if killed:
-            log.error("%i paths failed to install" % (killed, ))
-
 
 class PathInstalled(Event):
-    """
-  Fired when a path is installed
-  """
     def __init__(self, path):
         Event.__init__(self)
         self.path = path
@@ -173,24 +134,16 @@ class Switch(EventMixin):
             wp.add_xid(sw.dpid, msg.xid)
 
     def install_path(self, dst_sw, last_port, match, event):
-        """
-    Attempts to install a path between this switch and some destination
-    """
         p = _get_path(self, dst_sw, event.port, last_port)
         if p is None:
-            log.warning("Can't get from %s to %s", match.dl_src, match.dl_dst)
-            if (match.dl_type == pkt.ethernet.IP_TYPE
-                    and event.parsed.find('ipv4')):
-                # It's IP -- let's send a destination unreachable
-                log.debug("Dest unreachable (%s -> %s)", match.dl_src,
-                          match.dl_dst)
+            if (match.dl_type == pkt.ethernet.IP_TYPE and event.parsed.find('ipv4')):
                 e = pkt.ethernet()
-                e.src = EthAddr(dpid_to_str(self.dpid))  #FIXME: Hmm...
+                e.src = EthAddr(dpid_to_str(self.dpid))
                 e.dst = match.dl_src
                 e.type = e.IP_TYPE
                 ipp = pkt.ipv4()
                 ipp.protocol = ipp.ICMP_PROTOCOL
-                ipp.srcip = match.nw_dst  #FIXME: Ridiculous
+                ipp.srcip = match.nw_dst
                 ipp.dstip = match.nw_src
                 icmp = pkt.icmp()
                 icmp.type = pkt.ICMP.TYPE_DEST_UNREACH
@@ -199,7 +152,7 @@ class Switch(EventMixin):
                 d = orig_ip.pack()
                 d = d[:orig_ip.hl * 4 + 8]
                 import struct
-                d = struct.pack("!HH", 0, 0) + d  #FIXME: MTU
+                d = struct.pack("!HH", 0, 0) + d
                 icmp.payload = d
                 ipp.payload = icmp
                 e.payload = ipp
@@ -208,33 +161,23 @@ class Switch(EventMixin):
                 msg.data = e.pack()
                 self.connection.send(msg)
             return
-        log.debug("Installing path for %s -> %s %04x (%i hops)", match.dl_src,
-                  match.dl_dst, match.dl_type, len(p))
         self._install_path(p, match, event.ofp)
         p = [(sw, out_port, in_port) for sw, in_port, out_port in p]
         self._install_path(p, match.flip())
 
     def _handle_PacketIn(self, event):
         packet = event.parsed
-        loc = (self, event.port)  # Place we saw this ethaddr
-        oldloc = mac_map.get(packet.src)  # Place we last saw this ethaddr
+        loc = (self, event.port)
+        oldloc = mac_map.get(packet.src)
         if packet.effective_ethertype == packet.LLDP_TYPE:
             return
         if oldloc is None:
             if packet.src.is_multicast == False:
-                mac_map[packet.src] = loc  # Learn position for ethaddr
-                log.debug("Learned %s at %s.%i", packet.src, loc[0], loc[1])
+                mac_map[packet.src] = loc
         elif oldloc != loc:
-            # ethaddr seen at different place!
             if core.openflow_discovery.is_edge_port(loc[0].dpid, loc[1]):
-                # New place is another "plain" port (probably)
-                log.debug("%s moved from %s.%i to %s.%i?", packet.src,
-                          dpid_to_str(oldloc[0].dpid), oldloc[1],
-                          dpid_to_str(loc[0].dpid), loc[1])
                 if packet.src.is_multicast == False:
-                    mac_map[packet.src] = loc  # Learn position for ethaddr
-                    log.debug("Learned %s at %s.%i", packet.src, loc[0],
-                              loc[1])
+                    mac_map[packet.src] = loc
         if not packet.dst.is_multicast and packet.dst in mac_map:
             dest = mac_map[packet.dst]
             match = of.ofp_match.from_packet(packet)
@@ -242,7 +185,6 @@ class Switch(EventMixin):
 
     def disconnect(self):
         if self.connection is not None:
-            log.debug("Disconnect %s" % (self.connection, ))
             self.connection.removeListeners(self._listeners)
             self.connection = None
             self._listeners = None
@@ -254,7 +196,6 @@ class Switch(EventMixin):
         if self.ports is None:
             self.ports = connection.features.ports
         self.disconnect()
-        log.debug("Connect %s" % (connection, ))
         self.connection = connection
         self._listeners = self.listenTo(connection)
         self._connected_at = time.time()
@@ -264,9 +205,6 @@ class Switch(EventMixin):
 
 
 class l2_multi(EventMixin):
-    _eventMixin_events = set([
-        PathInstalled,
-    ])
 
     def __init__(self):
         def startup():
@@ -274,7 +212,7 @@ class l2_multi(EventMixin):
             core.openflow_discovery.addListeners(self)
 
         core.call_when_ready(startup, ('openflow', 'openflow_discovery'))
-
+    
     def _handle_LinkEvent(self, event):
         def flip(link):
             return Discovery.Link(link[2], link[3], link[0], link[1])
@@ -312,7 +250,6 @@ class l2_multi(EventMixin):
             sw = Switch()
             switches[event.dpid] = sw
         sw.connect(event.connection)
-
 
 def launch():
     core.registerNew(l2_multi)
